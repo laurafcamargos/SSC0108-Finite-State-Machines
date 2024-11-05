@@ -1,6 +1,6 @@
 # SSC0108 - Prática-SD
 
-[Laboratory Exercise 7 - Finite State Machines](img/lab8.pdf)
+[Laboratory Exercise 7 - Finite State Machines](img/lab7%20[PART%20I%20e%20PART%20IV].pdf)
 
 ### Alunos
 
@@ -477,4 +477,3 @@ end behavior;
 [Link para o projeto implementado no Quartus](quartus/FSM/)
 
 
-                
