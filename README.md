@@ -477,4 +477,4 @@ end behavior;
 [Link para o projeto implementado no Quartus](quartus/FSM/)
 
 
-            
+                
