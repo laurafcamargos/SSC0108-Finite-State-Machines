@@ -1,0 +1,119 @@
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
+USE ieee.numeric_std.ALL;
+
+entity part4 is
+    Port (
+        clock     : in std_logic;
+        reset     : in std_logic;        -- Asynchronous reset
+        start     : in std_logic;        -- Start signal
+        letter    : in std_logic_vector(2 downto 0);  -- SW2-0 for letter selection
+        led       : out std_logic        -- Output for LED
+    );
+end part4;
+
+architecture behavior of part4 is
+
+    type state_type is (IDLE, DOT, DASH, PAUSE, FINISH);
+    signal current_state, next_state : state_type;
+
+    signal pulse_counter : integer := 0;  -- Counter for timing
+    signal morse_seq    : std_logic_vector(7 downto 0); -- Morse code for letters A to H
+    signal pulse_length  : integer := 0;  -- Length of the pulse
+    signal pulse_output   : std_logic := '0'; -- LED output pulse
+
+begin
+
+    -- Morse code representation
+    process(letter)
+    begin
+        case letter is
+            when "000" => morse_seq <= "10000000"; -- A: • —
+            when "001" => morse_seq <= "01000000"; -- B: — • • •
+            when "010" => morse_seq <= "01010000"; -- C: — • — •
+            when "011" => morse_seq <= "00100000"; -- D: — • •
+            when "100" => morse_seq <= "10000000"; -- E: •
+            when "101" => morse_seq <= "11000000"; -- F: • • — •
+            when "110" => morse_seq <= "00110000"; -- G: — — •
+            when "111" => morse_seq <= "00010000"; -- H: • • • •
+            when others => morse_seq <= "00000000"; -- Default
+        end case;
+    end process;
+
+    -- State transition process
+    process(clock, reset)
+    begin
+        if reset = '1' then
+            current_state <= IDLE;
+            pulse_counter <= 0;
+            pulse_output <= '0';
+        elsif rising_edge(clock) then
+            current_state <= next_state;
+        end if;
+    end process;
+
+    -- Next state logic
+    process(current_state, start, pulse_counter)
+    begin
+        next_state <= current_state;  -- Default to stay in current state
+
+        case current_state is
+            when IDLE =>
+                led <= '0';  -- LED off
+                if start = '1' then
+                    pulse_counter <= 0;
+                    next_state <= DOT;  -- Start with the first dot
+                end if;
+
+            when DOT =>
+                led <= '1';  -- LED on for dot
+                pulse_length <= 5;  -- Duration for dot
+                if pulse_counter = pulse_length then
+                    pulse_counter <= 0;
+                    next_state <= PAUSE;  -- Move to pause after dot
+                else
+                    pulse_counter <= pulse_counter + 1;
+                end if;
+
+            when DASH =>
+                led <= '1';  -- LED on for dash
+                pulse_length <= 15;  -- Duration for dash
+                if pulse_counter = pulse_length then
+                    pulse_counter <= 0;
+                    next_state <= PAUSE;  -- Move to pause after dash
+                else
+                    pulse_counter <= pulse_counter + 1;
+                end if;
+
+            when PAUSE =>
+                led <= '0';  -- LED off during pause
+                pulse_length <= 5;  -- Duration for pause
+                if pulse_counter = pulse_length then
+                    if morse_seq(7 downto 0) /= "00000000" then
+                        if morse_seq(7) = '1' then
+                            next_state <= DASH;  -- Next signal is a dash
+                            morse_seq <= morse_seq(6 downto 0) & "0";  -- Shift left
+                        else
+                            next_state <= DOT;  -- Next signal is a dot
+                            morse_seq <= morse_seq(6 downto 0) & "0";  -- Shift left
+                        end if;
+                    else
+                        next_state <= FINISH;  -- All signals processed
+                    end if;
+                    pulse_counter <= 0;  -- Reset counter
+                else
+                    pulse_counter <= pulse_counter + 1;
+                end if;
+
+            when FINISH =>
+                led <= '0';  -- Turn off LED after finishing
+                if start = '0' then
+                    next_state <= IDLE;  -- Go back to idle
+                end if;
+
+            when others =>
+                next_state <= IDLE;  -- Default state
+        end case;
+    end process;
+
+end behavior;

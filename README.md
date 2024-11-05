@@ -19,158 +19,462 @@ Desejamos implementar uma máquina de estados finitos (FSM) que reconheça duas 
 
 <div align ="center">
     <img src ="img/figure1.png" style="max-width: 100%;" alt="rampart1">
-</div>
+</div>      
 
-### Arquivo VHDL ram32x4.vhd:
-```
-ENTITY ram32x4 IS
-PORT ( address : IN STD_LOGIC_VECTOR (4 DOWNTO 0);
-clock : IN STD_LOGIC := ’1’;
-data : IN STD_LOGIC_VECTOR (3 DOWNTO 0);
-wren : IN STD_LOGIC ;
-q : OUT STD_LOGIC_VECTOR (3 DOWNTO 0) );
-END ram32x4;
-```
-Ao compilar o circuito com os sinais dd entrada e saída foi observado no Relatório de Compilação que o Compilador Quartus usa 128 bits em um dos blocos de memória FPGA para implementar o circuito RAM.
-
+Um diagrama de estados para essa FSM:
 <div align ="center">
-    <img src ="img/compilationreportpart1.PNG" style="max-width: 100%;" alt="rampart1">
+    <img src ="img/figure2.png" style="max-width: 100%;" alt="rampart1">
 </div>
 
-Simulação do comportamento do nosso circuito:
-<div align ="center">
-    <img src ="img/simulacaopart1.png" style="max-width: 100%;" alt="Simulação do circuito no Quartus">
-</div>
+One-hot codes for the FSM - Tabela 1:
+| State Name | y8 y7 y6 y5 y4 y3 y2 y1 y0 |
+|------------|----------------------------|
+| A          | 000000001                  |
+| B          | 000000010                  |
+| C          | 000000100                  |
+| D          | 000001000                  |
+| E          | 000010000                  |
+| F          | 000100000                  |
+| G          | 001000000                  |
+| H          | 010000000                  |
+| I          | 100000000                  |
 
+### Código VHDL que implementa o código one-hot dado na Tabela 1:
+```
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
 
-## Part II
-Uma vez compilado e simulado o circuito, foi feita a configuração da FPGA Cyclone V DE0-CV para testar o circuito de fato. Fora usados os switches SW3−0 para fornecer dados de entrada para a RAM e os switches SW8−4 para especificar o endereço. O switch SW9 foi usado como o sinal de gravação e o KEY0 como a entrada do relógio. O valor do endereço foi mostrado nos displays de 7 segmentos HEX5 − 4, os dados que estão inseridos na memória foram mostrados no HEX2 e os dados lidos da memória no HEX0.
+entity part1 is
+    port(
+        clock  : in std_logic;
+        w      : in std_logic;
+        reset  : in std_logic;
+        z      : out std_logic;
+        state   : out std_logic_vector(8 downto 0)
+    );
+end part1;
 
-Circuito do nosso esquema no quartus com os pinos já configurados:
+architecture behavior of part1 is
 
-<div align ="center">
-    <img src ="img/blocospart2.png" style="max-width: 100%;" alt="Blocopart2">
-</div>
+    type State_type is (A, B, C, D, E, F, G, H, I);
+    signal y_Q, Y_D : State_type;
 
-[Link para o projeto implementado no Quartus](quartus/part1/praticaram)
+begin
 
-	
-## Part III
+    
+    process(w, y_Q)
+    begin
+        case y_Q is
+            when A =>
+                state <= "000000001";
+                z <= '0';
+                if (w = '0') then
+                    Y_D <= B;
+                else
+                    Y_D <= F; 
+                end if;
 
-Agora, em vez de criar um subcircuito de módulo de memória usando o IP Catalog do Quartus, implementamos a memória necessária especificando sua estrutura em código VHDL. Em um design especificado por VHDL, é possível definir a memória como uma matriz multidimensional.
+            when B =>
+                state <= "000000010";
+                z <= '0';
+                if (w = '0') then
+                    Y_D <= C;
+                else
+                    Y_D <= F;
+                end if;
 
-Uma matriz 32 x 4, que tem 32 palavras com 4 bits por palavra, pode ser declarada pela seguinte declaração:
+            when C =>
+                state <= "000000100";
+                z <= '0';
+                if (w = '0') then
+                    Y_D <= D;
+                else
+                    Y_D <= F;
+                end if;
+
+            when D =>
+                state <= "000001000";
+                z <= '0';
+                if (w = '0') then
+                    Y_D <= E;
+                else
+                    Y_D <= F;
+                end if;
+
+            when E =>
+                state <= "000010000";
+                z <= '1'; 
+                if (w = '0') then
+                    Y_D <= E;  
+                else
+                    Y_D <= F;
+                end if;
+
+            when F =>
+                state <= "000100000";
+                z <= '0';
+                if (w = '1') then
+                    Y_D <= G; 
+                else
+                    Y_D <= B;  
+                end if;
+
+            when G =>
+                state <= "001000000";
+                z <= '0';
+                if (w = '1') then
+                    Y_D <= H;
+                else
+                    Y_D <= B;
+                end if;
+
+            when H =>
+                state <= "010000000";
+                z <= '0';
+                if (w = '1') then
+                    Y_D <= I;
+                else
+                    Y_D <= B;
+                end if;
+
+            when I =>
+                state <= "100000000";
+                z <= '1'; 
+                if (w = '1') then
+                    Y_D <= I;  
+                else
+                    Y_D <= B;
+                end if;
+
+            when others =>
+                Y_D <= A;  
+        end case;
+    end process;
+
+    
+    process(clock)
+    begin
+        if rising_edge(clock) then
+            if reset = '1' then
+                y_Q <= A; 
+            else
+                y_Q <= Y_D;  
+            end if;
+        end if;
+    end process;
+
+end behavior;
 
 ```
-TYPE mem IS ARRAY(0 TO 31) OF STD_LOGIC_VECTOR(3 DOWNTO 0);
-SIGNAL memory_array : mem;
+Uma vez compilado e simulado o circuito, foi feita a configuração da FPGA Cyclone V DE0-CV para testar o circuito de fato. Foram usadas a chave de alternância SW0 como uma entrada de reset síncrona ativa em nível baixo para o FSM, o SW1 como a entrada w e o botão de pressão KEY0 como a entrada de clock, que é aplicada manualmente. O LEDR9 como a saída z e as saídas dos flip-flops de estado aos leds LEDR8 a LEDR0.    
+
+Por fim, é feita uma modificação do código one-hot dado na Tabela 1. Muitas vezes, é desejável definir todas as saídas dos flip-flops com o valor 0 no estado de reset. A Tabela 2 mostra uma atribuição de estado one-hot modificada, na qual o estado de reset, A, usa todos os 0s. Isso é feito invertendo a variável de estado y0​. 
+
+Tabela 2: 
+| State Name | y8 y7 y6 y5 y4 y3 y2 y1 y0 |
+|------------|----------------------------|
+| A          | 000000000                  |
+| B          | 000000011                  |
+| C          | 000000101                  |
+| D          | 000001001                  |
+| E          | 000010001                  |
+| F          | 000100001                  |
+| G          | 001000001                  |
+| H          | 010000001                  |
+| I          | 100000001                  |
+
+
+Foi criada então uma versão modificada do código VHDL que implementa essa atribuição de estado. 
+
+### Codigo VHDL modificado:
+
 ```
+LIBRARY ieee;
+USE ieee.std_logic_1164.ALL;
 
-Em uma FPGA, tal matriz pode ser implementada usando os flip-flops que cada elemento lógico contém ou, mais eficientemente, usando os blocos de memória integrados.
+entity part1_6 is
+    port(
+        clock  : in std_logic;
+        w      : in std_logic;
+        reset  : in std_logic;
+        z      : out std_logic;
+        state   : out std_logic_vector(8 downto 0) 
+    );
+end part1_6;
 
-### Codigo VHDL:
+architecture behavior of part1_6 is
 
+    type State_type is (A, B, C, D, E, F, G, H, I);
+    signal y_Q, Y_D : State_type;
+
+begin
+
+   
+    process(w, y_Q)
+    begin
+        case y_Q is
+            when A =>
+                state <= "000000000"; 
+                z <= '0';
+                if (w = '0') then
+                    Y_D <= B; 
+                else
+                    Y_D <= F; 
+                end if;
+
+            when B =>
+                state <= "000000011";  
+                z <= '0';
+                if (w = '0') then
+                    Y_D <= C;
+                else
+                    Y_D <= F;
+                end if;
+
+            when C =>
+                state <= "000000101";  
+                z <= '0';
+                if (w = '0') then
+                    Y_D <= D;
+                else
+                    Y_D <= F;
+                end if;
+
+            when D =>
+                state <= "000001001"; 
+                z <= '0';
+                if (w = '0') then
+                    Y_D <= E;
+                else
+                    Y_D <= F;
+                end if;
+
+            when E =>
+                state <= "000010001"; 
+                z <= '1';  
+                if (w = '0') then
+                    Y_D <= E;  
+                else
+                    Y_D <= F;
+                end if;
+
+            when F =>
+                state <= "000100001";  
+                z <= '0';
+                if (w = '1') then
+                    Y_D <= G;  
+                else
+                    Y_D <= B;  
+                end if;
+
+            when G =>
+                state <= "001000001"; 
+                z <= '0';
+                if (w = '1') then
+                    Y_D <= H;
+                else
+                    Y_D <= B;
+                end if;
+
+            when H =>
+                state <= "010000001";  
+                z <= '0';
+                if (w = '1') then
+                    Y_D <= I;
+                else
+                    Y_D <= B;
+                end if;
+
+            when I =>
+                state <= "100000001";  
+                z <= '1';  
+                if (w = '1') then
+                    Y_D <= I; 
+                else
+                    Y_D <= B;
+                end if;
+
+            when others =>
+                Y_D <= A;  
+        end case;
+    end process;
+
+   
+    process(clock)
+    begin
+        if rising_edge(clock) then
+            if reset = '1' then
+                y_Q <= A; 
+            else
+                y_Q <= Y_D; 
+            end if;
+        end if;
+    end process;
+end behavior;
+
+```
+Uma vez compilado o circuito, o mesmo foi testado novamente.
+
+## Part IV
+
+Nesta parte do exercício, implementamos um codificador de código Morse usando uma FSM. O código Morse utiliza padrões de pulsos curtos e longos para representar uma mensagem. Cada letra é representada como uma sequência de pontos (um pulso curto) e traços (um pulso longo). Por exemplo, as primeiras oito letras do alfabeto têm as seguintes representações:
+
+| Letra | Código Morse    |
+|-------|------------------|
+| A     | • —             |
+| B     | — • • •         |
+| C     | — • — •         |
+| D     | — • •           |
+| E     | •               |
+| F     | • • — •         |
+| G     | — — •           |
+| H     | • • • •         |
+
+O circuito desenvolvido recebe como entrada uma das primeiras oito letras do alfabeto e exibe o código Morse correspondente em um LED. Utilizamos os switches SW2−0 e os botões KEY1−0 como entradas. Quando um usuário pressionar o botão KEY1, o circuito deve exibir o código Morse para a letra especificada por SW2−0 (000 para A, 001 para B, etc.), usando pulsos de 0,5 segundos para representar pontos e pulsos de 1,5 segundos para representar traços. O botão KEY0 deve funcionar como um reset assíncrono.
+
+### Código VHDL:
 ```
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.std_logic_unsigned.ALL;
 
-ENTITY ram32bits IS
-    PORT (
-        address  : IN  STD_LOGIC_VECTOR(4 DOWNTO 0); -- 5-bit address for 32 locations
-        clock    : IN  STD_LOGIC;
-        dataIn   : IN  STD_LOGIC_VECTOR(3 DOWNTO 0); -- 4-bit input data
-        wrt      : IN  STD_LOGIC; -- write enable signal
-        --dataOut  : OUT STD_LOGIC_VECTOR(3 DOWNTO 0); -- 4-bit output data
-        hex0     : OUT STD_LOGIC_VECTOR(6 DOWNTO 0); -- data out
-        hex1     : OUT STD_LOGIC_VECTOR(6 DOWNTO 0); -- data in
-        hex2     : OUT STD_LOGIC_VECTOR(6 DOWNTO 0); -- mem digit 1
-        hex3     : OUT STD_LOGIC_VECTOR(6 DOWNTO 0)  -- mem digit 2
+entity part4 is
+    Port (
+        clock   : in std_logic;
+        reset   : in std_logic;        -- Asynchronous reset
+        start   : in std_logic;        -- Start signal (KEY1)
+        letter  : in std_logic_vector(2 downto 0);  -- SW2-0 for letter selection
+        led     : out std_logic        -- Output for LED
     );
-END ram32bits;
+end part4;
 
-ARCHITECTURE Behavior OF ram32bits IS
-    TYPE mem IS ARRAY(0 TO 31) OF STD_LOGIC_VECTOR(3 DOWNTO 0);
-    SIGNAL memory_array : mem := (others => (others => '0'));
+architecture behavior of part4 is
 
-    FUNCTION to_7_segment(data : STD_LOGIC_VECTOR(3 DOWNTO 0)) RETURN STD_LOGIC_VECTOR IS
-    BEGIN
-        CASE data IS
-            WHEN "0000" => RETURN "0000001"; -- 0
-            WHEN "0001" => RETURN "1001111"; -- 1
-            WHEN "0010" => RETURN "0010010"; -- 2
-            WHEN "0011" => RETURN "0000110"; -- 3
-            WHEN "0100" => RETURN "1001100"; -- 4
-            WHEN "0101" => RETURN "0100100"; -- 5
-            WHEN "0110" => RETURN "0100000"; -- 6
-            WHEN "0111" => RETURN "0001111"; -- 7
-            WHEN "1000" => RETURN "0000000"; -- 8
-            WHEN "1001" => RETURN "0001100"; -- 9
-            WHEN "1010" => RETURN "0001000"; -- A
-            WHEN "1011" => RETURN "1100000"; -- B
-            WHEN "1100" => RETURN "0110001"; -- C
-            WHEN "1101" => RETURN "1000010"; -- D
-            WHEN "1110" => RETURN "0110000"; -- E
-            WHEN "1111" => RETURN "0111000"; -- F
-            WHEN OTHERS => RETURN "1111111"; -- Blank or error
-        END CASE;
-    END FUNCTION;
+    type state_type is (IDLE, INIT, DOT, DASH, PAUSE);
+    signal current_state, next_state : state_type;
 
-    FUNCTION bit_to_7_segment(data : STD_LOGIC) RETURN STD_LOGIC_VECTOR IS
-    BEGIN
-        CASE data IS
-            WHEN '0' => RETURN "0000001"; -- 0
-            WHEN '1' => RETURN "1001111"; -- 1
-            WHEN OTHERS => RETURN "1111111"; -- Blank or error
-        END CASE;
-    END FUNCTION;
+    signal pulse_counter : integer := 0;          -- Counter for timing
+    signal morse_seq     : std_logic_vector(3 downto 0); -- Morse code for letters A to H
+    signal position_counter : integer := 0;       -- Tracks the current bit position in morse_seq
+    signal seq_length    : integer := 0;          -- Length of the Morse sequence for the letter
 
-BEGIN
-    PROCESS (clock)
-    BEGIN
-        IF rising_edge(clock) THEN
-            IF wrt = '1' THEN
-                memory_array(CONV_INTEGER(address)) <= dataIn;
-            END IF;
-            --dataOut <= memory_array(CONV_INTEGER(address)); -- Update the dataOut with the read value
-            hex0 <= to_7_segment(memory_array(CONV_INTEGER(address))); -- data out
-				hex1 <= to_7_segment(dataIn); -- data in
-				hex2 <= to_7_segment(address(3 DOWNTO 0)); -- Display lower 4 bits of address
-				hex3 <= bit_to_7_segment(address(4)); -- Display highest bit of address as a single bit
-        END IF;
-		  
-    END PROCESS;
-END Behavior;
+    constant DOT_LENGTH : integer := 25000000;    -- 0.5 seconds (25000000 clock cycles)
+    constant DASH_LENGTH : integer := 75000000;   -- 1.5 seconds (75000000 clock cycles)
+    constant PAUSE_LENGTH : integer := 25000000;  -- 0.5 seconds pause
 
+    -- Function to retrieve Morse code pattern
+    function get_morse_seq(letter : std_logic_vector(2 downto 0)) return std_logic_vector is
+    begin
+        case letter is
+            when "000" => return "0100"; -- A: .-
+            when "001" => return "1000"; -- B: -...
+            when "010" => return "1010"; -- C: -.-.
+            when "011" => return "1000"; -- D: -..
+            when "100" => return "0001"; -- E: .
+            when "101" => return "0010"; -- F: ..-.
+            when "110" => return "1100"; -- G: --.
+            when "111" => return "0000"; -- H: ....
+            when others => return "0000"; -- Default
+        end case;
+    end get_morse_seq;
+
+    -- Function to retrieve the length of the Morse code sequence
+    function get_seq_length(letter : std_logic_vector(2 downto 0)) return integer is
+    begin
+        case letter is
+            when "000" => return 2; -- A: .-
+            when "001" => return 4; -- B: -...
+            when "010" => return 4; -- C: -.-.
+            when "011" => return 3; -- D: -..
+            when "100" => return 1; -- E: .
+            when "101" => return 4; -- F: ..-.
+            when "110" => return 3; -- G: --.
+            when "111" => return 4; -- H: ....
+            when others => return 0; -- Default
+        end case;
+    end get_seq_length;
+
+begin
+
+    -- State transition and output logic
+    process(clock, reset)
+    begin
+        if reset = '0' then
+            current_state <= IDLE;
+            pulse_counter <= 0;
+            led <= '0';
+            morse_seq <= "0000";
+            position_counter <= 0;
+            seq_length <= 0;
+				
+        elsif rising_edge(clock) then
+            case current_state is
+                when IDLE =>
+                    led <= '0';  -- LED off
+                    if start = '0' then
+                        morse_seq <= get_morse_seq(letter);  -- Carregar sequência Morse
+                        seq_length <= get_seq_length(letter);  -- Carregar comprimento da sequência
+                        position_counter <= 0;  -- Resetar contador de posição
+                        pulse_counter <= 0;  -- Resetar contador de pulsos
+                        current_state <= INIT; -- Ir para o estado INIT para sincronizar a sequência
+                    end if;
+
+                when INIT =>
+                    -- Estado de inicialização que lê o primeiro bit de `morse_seq`
+                    if morse_seq(3) = '1' then
+                        current_state <= DASH;
+                    else
+                        current_state <= DOT;
+                    end if;
+
+                when DOT =>
+                    led <= '1';  -- LED ligado para ponto
+                    if pulse_counter < DOT_LENGTH then
+                        pulse_counter <= pulse_counter + 1;
+                    else
+                        pulse_counter <= 0;  -- Reset do contador
+                        position_counter <= position_counter + 1;  -- Avança para a próxima posição
+                        current_state <= PAUSE;  -- Vai para a pausa após ponto
+                    end if;
+
+                when DASH =>
+                    led <= '1';  -- LED ligado para traço
+                    if pulse_counter < DASH_LENGTH then
+                        pulse_counter <= pulse_counter + 1;
+                    else
+                        pulse_counter <= 0;
+                        position_counter <= position_counter + 1;
+                        current_state <= PAUSE;  -- Vai para a pausa após traço
+                    end if;
+
+                when PAUSE =>
+                    led <= '0';  -- LED desligado durante a pausa
+                    if pulse_counter < PAUSE_LENGTH then
+                        pulse_counter <= pulse_counter + 1;  -- Conta até atingir o tempo da pausa
+                    else
+                        pulse_counter <= 0;  -- Reset do contador
+                        if position_counter < seq_length then
+                            -- Verifica o próximo bit na sequência Morse
+                            if morse_seq(3 - position_counter) = '1' then
+                                current_state <= DASH;
+                            else
+                                current_state <= DOT;
+                            end if;
+                        else
+                            current_state <= IDLE;  -- Sequência completa
+                        end if;
+                    end if;
+
+                when others =>
+                    current_state <= IDLE;  -- Estado padrão
+            end case;
+        end if;
+    end process;
+
+end behavior;
 ```
-Uma vez compilado o circuito, foi testado a funcionalidade do nosso projeto aplicando algumas entradas e saídas para a FPGA DEO-CV.
 
-[Link para o projeto implementado no Quartus](quartus/part3/ram_part3/)
-
-
-## Part IV
-
-Para esta parte da prática, foi criado um tipo diferente do módulo de memória apresentado na Part I, no qual há uma porta para fornecer o endereço para uma operação de leitura e uma porta separada que fornece o endereço para uma operação de gravação. Foram executadas as seguintes etapas:
-
-### 1. Criar um novo projeto no Quartus e gerar o módulo de memória:
-   - No **IP Catalog**, foi escolhido o módulo **RAM: 2-PORT** na categoria **Basic Functions > On Chip Memory**.
-   - Depois, escolhido **With one read port and one write port** para configurar a RAM com uma porta de leitura e outra de escrita.
-   - Configurado o tamanho da memória, o método de clock e as portas registradas, assim como na Parte II.
-   - Para a opção **Mixed Port Read-During-Write for Single Input Clock RAM**, foi selecionado **I do not care (The outputs will be undefined)**, permitindo que os dados possam ser novos ou antigos se os endereços de leitura e escrita coincidirem.
-   - Foi feita a inicialização dos valores da memória através da criação de um arquivo `ram32x4.mif`.
-
-### 2. Criar um Arquivo VHDL para instanciar a memória:
-   - Foi criado um arquivo VHDL que instancia o módulo de memória de duas portas.
-   - Adicionado um contador para percorrer os endereços de leitura da memória a cada um segundo.
-
-### 5. Configurar os pinos da FPGA e testar o circuito:
-   - No display de 7 segmentos **HEX0**, é mostrado o conteúdo da memória (em hexadecimal).
-   - No display **HEX3-2** é mostrado o endereço atual através do contador de 1 segundo.
-   - Os switches **SW8-4** mostram o endereço de escrita e **SW3-0** o dado de escrita. O endereço de escrita é exibido em **HEX5-4** e o dado de escrita em **HEX1**.
-   - É feita a sincronização das entradas dos switches ao clock de 50 MHz da FPGA.
-
- Após testar o circuito os resultados foram: o conteúdo inicial da memória corresponde ao arquivo `ram32x4.mif` e foi possível escrever dados em qualquer endereço da memória usando os switches.
-
-[Link para o projeto implementado no Quartus](quartus/part3/ram_part3/)
+[Link para o projeto implementado no Quartus](quartus/FSM/)
 
 
+            

@@ -1,0 +1,124 @@
+library IEEE;
+use IEEE.STD_LOGIC_1164.ALL;
+use IEEE.STD_LOGIC_ARITH.ALL;
+use IEEE.STD_LOGIC_UNSIGNED.ALL;
+
+entity part1 is
+    Port (
+        SW : in STD_LOGIC_VECTOR(1 downto 0);
+        KEY : in STD_LOGIC_VECTOR(1 downto 0);
+        LEDG : out STD_LOGIC_VECTOR(1 downto 0);
+        LEDR : out STD_LOGIC_VECTOR(17 downto 0)
+    );
+end part2;
+
+architecture Behavioral of part1 is
+
+    type State_Type is (A, B, C, D, E, F, G, H, I);
+    signal State : State_Type;
+    signal Y : STD_LOGIC_VECTOR(8 downto 0);
+    signal z : STD_LOGIC;
+    signal shifter : STD_LOGIC_VECTOR(3 downto 0);
+    
+begin
+
+    process(KEY, SW)
+    begin
+        if (SW(0) = '1') then
+            z <= '0';
+            shifter <= "0101";
+            State <= A;
+        elsif rising_edge(KEY(0)) then
+            if (shifter = "0000" or shifter = "1111") then
+                z <= '1';
+            else
+                z <= '0';
+            end if;
+            shifter <= shifter(2 downto 0) & SW(1);
+        end if;
+    end process;
+
+    process(State)
+    begin
+        case State is
+            when A => Y <= "000000001";
+            when B => Y <= "000000010";
+            when C => Y <= "000000100";
+            when D => Y <= "000001000";
+            when E => Y <= "000010000";
+            when F => Y <= "000100000";
+            when G => Y <= "001000000";
+            when H => Y <= "010000000";
+            when I => Y <= "100000000";
+            when others => Y <= "000000000";
+        end case;
+    end process;
+
+    process(KEY, SW)
+    begin
+        if (SW(0) = '1') then
+            State <= A;
+        elsif rising_edge(KEY(0)) then
+            case State is
+                when A =>
+                    if (SW(1) = '1') then
+                        State <= F;
+                    else
+                        State <= B;
+                    end if;
+                when B =>
+                    if (SW(1) = '1') then
+                        State <= F;
+                    else
+                        State <= C;
+                    end if;
+                when C =>
+                    if (SW(1) = '1') then
+                        State <= F;
+                    else
+                        State <= D;
+                    end if;
+                when D =>
+                    if (SW(1) = '1') then
+                        State <= F;
+                    else
+                        State <= E;
+                    end if;
+                when E =>
+                    if (SW(1) = '1') then
+                        State <= F;
+                    else
+                        State <= E;
+                    end if;
+                when F =>
+                    if (SW(1) = '1') then
+                        State <= G;
+                    else
+                        State <= B;
+                    end if;
+                when G =>
+                    if (SW(1) = '1') then
+                        State <= H;
+                    else
+                        State <= B;
+                    end if;
+                when H =>
+                    if (SW(1) = '1') then
+                        State <= I;
+                    else
+                        State <= B;
+                    end if;
+                when I =>
+                    if (SW(1) = '1') then
+                        State <= I;
+                    else
+                        State <= B;
+                    end if;
+            end case;
+        end if;
+    end process;
+
+    LEDG(0) <= z;
+    LEDR(8 downto 0) <= Y;
+
+end Behavioral;
